@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="tk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log Monitor</title>
+  <style>
+    /* ── Reset & variables ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #21262d;
+      --border:    #30363d;
+      --accent:    #58a6ff;
+      --accent2:   #1f6feb;
+      --text:      #c9d1d9;
+      --text-dim:  #8b949e;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --orange:    #e3b341;
+      --red:       #f85149;
+      --blue:      #58a6ff;
+      --purple:    #bc8cff;
+      --radius:    8px;
+      --font-mono: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+    }
+    .logo svg { flex-shrink: 0; }
+    .logo-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .5px;
+    }
+    .logo-subtitle { font-size: 11px; color: var(--text-dim); }
+
+    /* ── Connect bar ─────────────────────────────────────────────────── */
+    .connect-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .connect-bar label {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .connect-bar input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 6px 12px;
+      font-size: 14px;
+      font-family: var(--font-mono);
+      width: 170px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .connect-bar input:focus { border-color: var(--accent); }
+    .connect-bar input::placeholder { color: var(--text-dim); }
+
+    .btn {
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius);
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .4; cursor: default; }
+
+    .btn-primary   { background: var(--accent2); color: #fff; }
+    .btn-danger    { background: #b62324; color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+    .server-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .server-group label { white-space: nowrap; }
+    .server-group input { width: 220px; }
+
+    /* ── Toolbar (filters) ───────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .level-filter {
+      display: flex;
+      gap: 4px;
+    }
+
+    .level-btn {
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      transition: opacity .15s;
+      user-select: none;
+    }
+    .level-btn[data-level="ALL"]   { background: var(--surface2); color: var(--text);   border-color: var(--border); }
+    .level-btn[data-level="INFO"]  { background: #1a3a5c; color: var(--blue); }
+    .level-btn[data-level="WARN"]  { background: #3a2e00; color: var(--orange); }
+    .level-btn[data-level="ERROR"] { background: #3a1010; color: var(--red); }
+    .level-btn[data-level="DEBUG"] { background: #1e2a1e; color: var(--green); }
+    .level-btn.active { outline: 2px solid currentColor; outline-offset: 1px; }
+
+    .search-box {
+      flex: 1;
+      min-width: 180px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 5px 12px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .search-box:focus { border-color: var(--accent); }
+    .search-box::placeholder { color: var(--text-dim); }
+
+    .toolbar-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-left: auto;
+    }
+
+    .count-badge {
+      font-size: 12px;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2px 10px;
+    }
+
+    /* toggle auto-scroll */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .toggle-wrap input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px; height: 14px;
+      cursor: pointer;
+    }
+
+    /* ── Main content ────────────────────────────────────────────────── */
+    .content {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      overflow: hidden;
+    }
+
+    /* ── Agent sidebar ───────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 12px 16px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .agent-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background .15s;
+    }
+    .agent-item:hover { background: var(--surface2); }
+    .agent-item.active { background: var(--surface2); border-left: 3px solid var(--accent); }
+
+    .agent-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .agent-dot.online  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .agent-dot.offline { background: var(--text-dim); }
+
+    .agent-info { min-width: 0; }
+    .agent-ip   { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
+    .agent-host { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .no-agents {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    /* ── Log panel ───────────────────────────────────────────────────── */
+    .log-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .log-panel-header {
+      padding: 10px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .agent-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .agent-meta { font-size: 12px; color: var(--text-dim); }
+    .agent-meta span { color: var(--text); }
+
+    /* ── Log table ───────────────────────────────────────────────────── */
+    .log-container {
+      flex: 1;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface2);
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      text-align: left;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(48, 54, 61, .5);
+      transition: background .1s;
+    }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+
+    td { padding: 5px 12px; vertical-align: top; }
+
+    .col-time   { color: var(--text-dim); white-space: nowrap; width: 170px; }
+    .col-level  { width: 70px; }
+    .col-source { color: var(--purple); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+    .col-msg    { word-break: break-word; color: var(--text); }
+
+    .badge {
+      display: inline-block;
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-INFO  { background: #1a3a5c; color: var(--blue); }
+    .badge-WARN  { background: #3a2e00; color: var(--orange); }
+    .badge-ERROR { background: #3a1010; color: var(--red); }
+    .badge-DEBUG { background: #1e2a1e; color: var(--green); }
+    .badge-default { background: var(--surface2); color: var(--text-dim); }
+
+    /* highlight search match */
+    mark { background: rgba(255, 210, 0, .25); color: #ffd200; border-radius: 2px; }
+
+    /* ── Empty / status states ───────────────────────────────────────── */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-dim);
+      padding: 40px;
+      text-align: center;
+    }
+    .empty-state svg { opacity: .3; }
+    .empty-state h3 { font-size: 16px; color: var(--text); }
+    .empty-state p  { font-size: 13px; max-width: 360px; }
+
+    /* ── Connection status pill ──────────────────────────────────────── */
+    #conn-status {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-left: auto;
+    }
+    #conn-status.connected    { background: #1a3d1a; color: var(--green); }
+    #conn-status.disconnected { background: #3a1010; color: var(--red); }
+    #conn-status.connecting   { background: #3a2e00; color: var(--orange); }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 700px) {
+      .content { grid-template-columns: 1fr; }
+      .sidebar { max-height: 160px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="#1f6feb"/>
+        <path d="M6 8h16M6 14h10M6 20h13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="21" cy="20" r="4" fill="#f85149" stroke="#0d1117" stroke-width="1.5"/>
+      </svg>
+      <div>
+        <div class="logo-title">Log Monitor</div>
+        <div class="logo-subtitle">Hakyky wagtda uzak ulgam loglaryny görmek</div>
+      </div>
+    </div>
+
+    <!-- Connect to server -->
+    <div class="server-group">
+      <label>Serwer:</label>
+      <input id="server-url" type="text" value="ws://localhost:8000" placeholder="ws://host:8000" />
+    </div>
+
+    <span id="conn-status" class="disconnected">● Birikdirilmedi</span>
+  </header>
+
+  <!-- ── Connect bar ────────────────────────────────────────────────── -->
+  <div class="connect-bar">
+    <label>Kompýuteriň IP-si:</label>
+    <input id="ip-input" type="text" placeholder="192.168.1.5" />
+    <button class="btn btn-primary" id="btn-watch">Loglary görmek</button>
+    <button class="btn btn-danger"  id="btn-stop" disabled>Duruzmak</button>
+    <button class="btn btn-secondary" id="btn-clear">Arassalamak</button>
+    <button class="btn btn-secondary" id="btn-export">CSV eksport</button>
+  </div>
+
+  <!-- ── Filters toolbar ────────────────────────────────────────────── -->
+  <div class="toolbar">
+    <div class="level-filter">
+      <span class="level-btn active" data-level="ALL">Hemmesi</span>
+      <span class="level-btn" data-level="INFO">INFO</span>
+      <span class="level-btn" data-level="WARN">WARN</span>
+      <span class="level-btn" data-level="ERROR">ERROR</span>
+      <span class="level-btn" data-level="DEBUG">DEBUG</span>
+    </div>
+    <input class="search-box" id="search" type="text" placeholder="Habar ýa-da çeşme boýunça gözleg…" />
+    <div class="toolbar-right">
+      <span class="count-badge" id="log-count">0 ýazgy</span>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="auto-scroll" checked />
+        Awtomatik aýlamak
+      </label>
+    </div>
+  </div>
+
+  <!-- ── Main ───────────────────────────────────────────────────────── -->
+  <div class="content">
+
+    <!-- ── Sidebar: known agents ─────────────────────────────────────── -->
+    <div class="sidebar">
+      <div class="sidebar-header">Agentler</div>
+      <div id="agent-list"><div class="no-agents">Birikdirilen agent ýok</div></div>
+    </div>
+
+    <!-- ── Log panel ──────────────────────────────────────────────────── -->
+    <div class="log-panel" id="log-panel">
+
+      <!-- empty state -->
+      <div class="empty-state" id="empty-state">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect x="8" y="12" width="48" height="40" rx="4" stroke="#8b949e" stroke-width="2"/>
+          <path d="M16 24h32M16 32h24M16 40h16" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h3>Maglumat ýok</h3>
+        <p>Kompýuteriň IP-sini giriziň we «Loglary görmek» düwmesine basyň.<br/>Nyşana alnan kompýuterde agent işleýän bolmalydyr.</p>
+      </div>
+
+      <!-- log table (hidden until data arrives) -->
+      <div class="log-panel-header" id="panel-header" style="display:none;">
+        <div class="agent-status-badge" id="agent-status-badge">
+          <div class="agent-dot offline" id="agent-dot"></div>
+          <span id="agent-status-text">—</span>
+        </div>
+        <div class="agent-meta" id="agent-meta"></div>
+      </div>
+
+      <div class="log-container" id="log-container" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-time">Wagt (UTC)</th>
+              <th class="col-level">Derejeleri</th>
+              <th class="col-source">Çeşme</th>
+              <th class="col-msg">Habar</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody"></tbody>
+        </table>
+      </div>
+
+    </div><!-- /.log-panel -->
+  </div><!-- /.content -->
+
+</div><!-- /.app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════
+let serverBaseWs  = "ws://localhost:8000";
+let serverBaseHttp = "http://localhost:8000";
+
+let viewWs   = null;   // WebSocket to /ws/view/:ip
+let agentWs  = null;   // WebSocket to /ws/agent (for live agent list)
+let currentIp = null;
+
+let allLogs = [];          // full unfiltered log array
+let activeLevel = "ALL";
+let searchQuery = "";
+
+// ═══════════════════════════════════════════════════════════════════════
+// DOM refs
+// ═══════════════════════════════════════════════════════════════════════
+const ipInput       = document.getElementById("ip-input");
+const serverUrlEl   = document.getElementById("server-url");
+const btnWatch      = document.getElementById("btn-watch");
+const btnStop       = document.getElementById("btn-stop");
+const btnClear      = document.getElementById("btn-clear");
+const btnExport     = document.getElementById("btn-export");
+const connStatus    = document.getElementById("conn-status");
+const logTbody      = document.getElementById("log-tbody");
+const logContainer  = document.getElementById("log-container");
+const emptyState    = document.getElementById("empty-state");
+const panelHeader   = document.getElementById("panel-header");
+const agentDot      = document.getElementById("agent-dot");
+const agentStatusTx = document.getElementById("agent-status-text");
+const agentMetaEl   = document.getElementById("agent-meta");
+const agentListEl   = document.getElementById("agent-list");
+const logCountEl    = document.getElementById("log-count");
+const searchInput   = document.getElementById("search");
+const autoScrollChk = document.getElementById("auto-scroll");
+
+// ═══════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function highlight(text, query) {
+  if (!query) return esc(text);
+  const re = new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + ")", "gi");
+  return esc(text).replace(re, "<mark>$1</mark>");
+}
+
+function badgeClass(level) {
+  return ["INFO","WARN","ERROR","DEBUG"].includes(level) ? `badge-${level}` : "badge-default";
+}
+
+function formatTime(iso) {
+  return iso ? iso.replace("T"," ").replace("Z","") : "—";
+}
+
+function setConnStatus(state, text) {
+  connStatus.className = state;
+  connStatus.textContent = "● " + text;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Render
+// ═══════════════════════════════════════════════════════════════════════
+function renderLogs() {
+  const q = searchQuery.toLowerCase();
+  const filtered = allLogs.filter(e => {
+    if (activeLevel !== "ALL" && e.level !== activeLevel) return false;
+    if (q && !e.message.toLowerCase().includes(q) && !e.source.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  logCountEl.textContent = `${filtered.length.toLocaleString()} ýazgy`;
+
+  const rows = filtered.map(e => `
+    <tr>
+      <td class="col-time">${esc(formatTime(e.timestamp))}</td>
+      <td class="col-level"><span class="badge ${badgeClass(e.level)}">${esc(e.level)}</span></td>
+      <td class="col-source" title="${esc(e.source)}">${highlight(e.source, searchQuery)}</td>
+      <td class="col-msg">${highlight(e.message, searchQuery)}</td>
+    </tr>`).join("");
+
+  logTbody.innerHTML = rows;
+
+  if (autoScrollChk.checked) {
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+}
+
+function showLogPanel() {
+  emptyState.style.display  = "none";
+  panelHeader.style.display = "flex";
+  logContainer.style.display = "block";
+}
+
+function showEmptyState() {
+  emptyState.style.display  = "flex";
+  panelHeader.style.display = "none";
+  logContainer.style.display = "none";
+}
+
+function updateAgentStatus(info, status) {
+  const online = status === "online";
+  agentDot.className = `agent-dot ${online ? "online" : "offline"}`;
+  agentStatusTx.textContent = info
+    ? `${info.hostname || info.ip} — ${online ? "Online" : "Offline"}`
+    : (online ? "Online" : "Offline");
+  if (info) {
+    agentMetaEl.innerHTML =
+      `OS: <span>${esc(info.os || "—")}</span> &nbsp;|&nbsp; ` +
+      `IP: <span>${esc(info.ip)}</span> &nbsp;|&nbsp; ` +
+      `Birikdilen: <span>${esc(formatTime(info.connected_at))}</span>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Agent sidebar
+// ═══════════════════════════════════════════════════════════════════════
+let knownAgents = {};  // ip -> info
+
+function renderAgentList() {
+  const entries = Object.values(knownAgents);
+  if (!entries.length) {
+    agentListEl.innerHTML = '<div class="no-agents">Birikdirilen agent ýok</div>';
+    return;
+  }
+  agentListEl.innerHTML = entries.map(a => `
+    <div class="agent-item ${a.ip === currentIp ? "active" : ""}" data-ip="${esc(a.ip)}">
+      <div class="agent-dot ${a.status === "online" ? "online" : "offline"}"></div>
+      <div class="agent-info">
+        <div class="agent-ip">${esc(a.ip)}</div>
+        <div class="agent-host">${esc(a.hostname || "—")}</div>
+      </div>
+    </div>`).join("");
+
+  agentListEl.querySelectorAll(".agent-item").forEach(el => {
+    el.addEventListener("click", () => {
+      ipInput.value = el.dataset.ip;
+      startWatching(el.dataset.ip);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Server-level WebSocket (agent list updates)
+// ═══════════════════════════════════════════════════════════════════════
+async function loadAgents() {
+  try {
+    const res = await fetch(`${serverBaseHttp}/api/agents`);
+    if (!res.ok) return;
+    const agents = await res.json();
+    agents.forEach(a => { knownAgents[a.ip] = a; });
+    renderAgentList();
+  } catch(_) {}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// View WebSocket (logs for specific IP)
+// ═══════════════════════════════════════════════════════════════════════
+function startWatching(ip) {
+  stopWatching();
+  currentIp = ip;
+  allLogs   = [];
+  showLogPanel();
+  renderLogs();
+  updateAgentStatus(knownAgents[ip] || null, knownAgents[ip]?.status || "unknown");
+
+  const wsUrl = `${serverBaseWs}/ws/view/${encodeURIComponent(ip)}`;
+  setConnStatus("connecting", "Birikdirilýär…");
+
+  viewWs = new WebSocket(wsUrl);
+
+  viewWs.onopen = () => {
+    setConnStatus("connected", "Birikdirildi");
+    btnStop.disabled = false;
+    btnWatch.disabled = true;
+    // ping to keep alive
+    const pingInterval = setInterval(() => {
+      if (viewWs && viewWs.readyState === WebSocket.OPEN) {
+        viewWs.send(JSON.stringify({type:"ping"}));
+      } else {
+        clearInterval(pingInterval);
+      }
+    }, 15000);
+    viewWs._pingInterval = pingInterval;
+  };
+
+  viewWs.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch(_) { return; }
+
+    if (msg.type === "history") {
+      allLogs = msg.entries || [];
+      if (msg.agent_info) {
+        knownAgents[ip] = msg.agent_info;
+        renderAgentList();
+        updateAgentStatus(msg.agent_info, msg.agent_info.status || "online");
+      }
+      renderLogs();
+    } else if (msg.type === "log" && msg.ip === ip) {
+      allLogs.push(msg.entry);
+      // cap at 3000 in memory
+      if (allLogs.length > 3000) allLogs.shift();
+      renderLogs();
+    } else if (msg.type === "agent_status" && msg.ip === ip) {
+      knownAgents[ip] = msg.info;
+      renderAgentList();
+      updateAgentStatus(msg.info, msg.status);
+    }
+  };
+
+  viewWs.onclose = () => {
+    setConnStatus("disconnected", "Birikdirilmedi");
+    btnStop.disabled = true;
+    btnWatch.disabled = false;
+    if (viewWs && viewWs._pingInterval) clearInterval(viewWs._pingInterval);
+  };
+
+  viewWs.onerror = () => {
+    setConnStatus("disconnected", "Birikdirmek ýalňyşlygy");
+  };
+}
+
+function stopWatching() {
+  if (viewWs) {
+    if (viewWs._pingInterval) clearInterval(viewWs._pingInterval);
+    viewWs.close();
+    viewWs = null;
+  }
+  currentIp = null;
+  btnStop.disabled = true;
+  btnWatch.disabled = false;
+  setConnStatus("disconnected", "Birikdirilmedi");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Events
+// ═══════════════════════════════════════════════════════════════════════
+serverUrlEl.addEventListener("change", () => {
+  const val = serverUrlEl.value.trim().replace(/\/$/, "");
+  serverBaseWs  = val.startsWith("ws") ? val : "ws://" + val;
+  serverBaseHttp = serverBaseWs.replace(/^ws/, "http");
+  loadAgents();
+});
+
+btnWatch.addEventListener("click", () => {
+  const ip = ipInput.value.trim();
+  if (!ip) { ipInput.focus(); return; }
+  startWatching(ip);
+});
+
+btnStop.addEventListener("click", stopWatching);
+
+btnClear.addEventListener("click", () => {
+  allLogs = [];
+  renderLogs();
+});
+
+btnExport.addEventListener("click", () => {
+  const q = searchQuery.toLowerCase();
+  const filtered = allLogs.filter(e => {
+    if (activeLevel !== "ALL" && e.level !== activeLevel) return false;
+    if (q && !e.message.toLowerCase().includes(q) && !e.source.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const header = ["timestamp","level","source","message"];
+  const csvRow = (r) => header.map(k => `"${(r[k]||"").replace(/"/g,'""')}"`).join(",");
+  const blob = new Blob(
+    [header.join(",") + "\n" + filtered.map(csvRow).join("\n")],
+    {type: "text/csv;charset=utf-8"}
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `logs_${currentIp || "export"}_${Date.now()}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+});
+
+ipInput.addEventListener("keydown", e => { if (e.key === "Enter") btnWatch.click(); });
+
+// level filter
+document.querySelectorAll(".level-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".level-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeLevel = btn.dataset.level;
+    renderLogs();
+  });
+});
+
+// search
+let searchTimer;
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    searchQuery = searchInput.value.trim();
+    renderLogs();
+  }, 200);
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════════
+(function init() {
+  const val = serverUrlEl.value.trim();
+  serverBaseWs   = val.startsWith("ws") ? val : "ws://" + val;
+  serverBaseHttp = serverBaseWs.replace(/^ws/, "http");
+  loadAgents();
+  // refresh agent list every 10s
+  setInterval(loadAgents, 10000);
+})();
+</script>
+</body>
+</html>
