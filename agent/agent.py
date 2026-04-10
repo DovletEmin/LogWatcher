@@ -835,6 +835,13 @@ def main():
     if args.group:
         config["group"] = args.group
 
+    # Prompt for server IP if not provided via --server flag
+    if not args.server:
+        server_ip = input("Enter server IP (e.g. 192.168.1.100): ").strip()
+        if server_ip:
+            config["server"] = f"ws://{server_ip}:8000/ws/agent"
+            print(f"[agent] Server set to {config['server']}")
+
     asyncio.run(run_agent(config))
 
 
