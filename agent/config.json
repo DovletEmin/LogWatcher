@@ -1,0 +1,13 @@
+{
+  "server": "ws://localhost:8000/ws/agent",
+  "interval": 3,
+  "channels": ["System", "Application", "Security"],
+  "log_files": [],
+  "metrics_enabled": true,
+  "metrics_interval": 10,
+  "activity_enabled": true,
+  "activity_interval": 5,
+  "browser_history_enabled": true,
+  "browser_history_limit": 50,
+  "group": ""
+}

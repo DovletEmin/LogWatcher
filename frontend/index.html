@@ -1,399 +1,304 @@
 <!DOCTYPE html>
-<html lang="tk">
+<html lang="tk" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Log Monitor</title>
   <style>
-    /* ── Reset & variables ──────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0d1117;
-      --surface:   #161b22;
-      --surface2:  #21262d;
-      --border:    #30363d;
-      --accent:    #58a6ff;
-      --accent2:   #1f6feb;
-      --text:      #c9d1d9;
-      --text-dim:  #8b949e;
-      --green:     #3fb950;
-      --yellow:    #d29922;
-      --orange:    #e3b341;
-      --red:       #f85149;
-      --blue:      #58a6ff;
-      --purple:    #bc8cff;
-      --radius:    8px;
-      --font-mono: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    :root, [data-theme="dark"] {
+      --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+      --accent:#58a6ff; --accent2:#1f6feb; --text:#c9d1d9; --text-dim:#8b949e;
+      --green:#3fb950; --yellow:#d29922; --orange:#e3b341; --red:#f85149;
+      --blue:#58a6ff; --purple:#bc8cff; --radius:8px;
+      --font-mono:"Cascadia Code","Fira Code","Consolas",monospace;
+      --card-shadow:0 1px 3px rgba(0,0,0,.4); --modal-bg:rgba(0,0,0,.6);
     }
-
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
+    [data-theme="light"] {
+      --bg:#f6f8fa; --surface:#ffffff; --surface2:#f0f3f6; --border:#d0d7de;
+      --accent:#0969da; --accent2:#0969da; --text:#1f2328; --text-dim:#656d76;
+      --green:#1a7f37; --yellow:#9a6700; --orange:#bc4c00; --red:#cf222e;
+      --blue:#0969da; --purple:#8250df;
+      --card-shadow:0 1px 4px rgba(0,0,0,.1); --modal-bg:rgba(0,0,0,.35);
     }
+    html, body { height:100%; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-size:14px; line-height:1.5; transition:background .25s,color .25s; }
+    .app { display:grid; grid-template-rows:auto auto 1fr; height:100vh; overflow:hidden; }
 
-    /* ── Layout ─────────────────────────────────────────────────────── */
-    .app {
-      display: grid;
-      grid-template-rows: auto auto 1fr;
-      height: 100vh;
-      overflow: hidden;
-    }
+    /* ── Header ─────────────────────────────────────────────── */
+    header { background:var(--surface); border-bottom:1px solid var(--border);
+      padding:10px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    .logo { display:flex; align-items:center; gap:10px; user-select:none; }
+    .logo svg { flex-shrink:0; }
+    .logo-title { font-size:18px; font-weight:700; color:var(--accent); letter-spacing:.5px; }
+    .logo-subtitle { font-size:11px; color:var(--text-dim); }
+    .hdr-right { display:flex; align-items:center; gap:10px; margin-left:auto; flex-wrap:wrap; }
+    .server-group { display:flex; align-items:center; gap:6px; }
+    .server-group label { font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; white-space:nowrap; }
+    .server-group input { width:210px; }
+    .theme-btn { cursor:pointer; background:var(--surface2); border:1px solid var(--border);
+      border-radius:var(--radius); color:var(--text-dim); padding:5px 10px;
+      font-size:16px; line-height:1; transition:background .2s,color .2s; }
+    .theme-btn:hover { color:var(--accent); }
+    #conn-status { font-size:12px; padding:3px 10px; border-radius:12px; white-space:nowrap; }
+    #conn-status.connected { background:#1a3d1a; color:var(--green); }
+    #conn-status.disconnected { background:#3a1010; color:var(--red); }
+    #conn-status.connecting { background:#3a2e00; color:var(--orange); }
 
-    /* ── Header ─────────────────────────────────────────────────────── */
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
+    /* ── Tab bar ────────────────────────────────────────────── */
+    .tab-bar { background:var(--surface); border-bottom:1px solid var(--border);
+      padding:0 24px; display:flex; align-items:stretch; flex-wrap:wrap; }
+    .tabs { display:flex; gap:0; }
+    .tab { cursor:pointer; background:none; border:none; border-bottom:2px solid transparent;
+      color:var(--text-dim); padding:10px 18px; font-size:13px; font-weight:600;
+      transition:color .15s,border-color .15s; }
+    .tab:hover { color:var(--text); }
+    .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .connect-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:auto; padding:6px 0; }
+    .connect-controls label { font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      user-select: none;
-    }
-    .logo svg { flex-shrink: 0; }
-    .logo-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: .5px;
-    }
-    .logo-subtitle { font-size: 11px; color: var(--text-dim); }
+    /* ── Shared ──────────────────────────────────────────────── */
+    input[type="text"], input[type="number"] {
+      background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius);
+      color:var(--text); padding:6px 12px; font-size:14px; font-family:var(--font-mono);
+      outline:none; transition:border-color .2s,background .25s,color .25s; }
+    input:focus { border-color:var(--accent); }
+    input::placeholder { color:var(--text-dim); }
+    .btn { cursor:pointer; border:none; border-radius:var(--radius); padding:6px 14px;
+      font-size:13px; font-weight:600; transition:opacity .15s,transform .1s; }
+    .btn:active { transform:scale(.97); }
+    .btn:disabled { opacity:.4; cursor:default; }
+    .btn-primary { background:var(--accent2); color:#fff; }
+    .btn-multi { background:#2d6a2e; color:#fff; }
+    .btn-danger { background:#b62324; color:#fff; }
+    .btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+    .connect-controls input[type="text"] { width:150px; }
+    .connect-controls input[type="number"] { width:60px; text-align:center; }
 
-    /* ── Connect bar ─────────────────────────────────────────────────── */
-    .connect-bar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 24px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
+    /* ── Content ─────────────────────────────────────────────── */
+    .content { display:grid; grid-template-columns:230px 1fr; overflow:hidden; }
 
-    .connect-bar label {
-      font-size: 12px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar { background:var(--surface); border-right:1px solid var(--border);
+      overflow-y:auto; display:flex; flex-direction:column; }
+    .sidebar-header { padding:12px 16px; font-size:11px; text-transform:uppercase;
+      letter-spacing:.8px; color:var(--text-dim); border-bottom:1px solid var(--border); }
+    .group-label { padding:8px 16px 4px; font-size:10px; text-transform:uppercase;
+      letter-spacing:.8px; color:var(--accent); font-weight:700; }
+    .agent-item { display:flex; align-items:center; gap:10px; padding:9px 16px;
+      cursor:pointer; border-bottom:1px solid var(--border); transition:background .15s; }
+    .agent-item:hover { background:var(--surface2); }
+    .agent-item.active { background:var(--surface2); border-left:3px solid var(--accent); }
+    .agent-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .agent-dot.online { background:var(--green); box-shadow:0 0 6px var(--green); }
+    .agent-dot.offline { background:var(--text-dim); }
+    .agent-info { min-width:0; }
+    .agent-ip { font-family:var(--font-mono); font-size:13px; white-space:nowrap; }
+    .agent-host { font-size:11px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .no-agents { padding:24px 16px; text-align:center; color:var(--text-dim); font-size:12px; }
 
-    .connect-bar input {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      padding: 6px 12px;
-      font-size: 14px;
-      font-family: var(--font-mono);
-      width: 170px;
-      outline: none;
-      transition: border-color .2s;
-    }
-    .connect-bar input:focus { border-color: var(--accent); }
-    .connect-bar input::placeholder { color: var(--text-dim); }
+    /* ── View container ──────────────────────────────────────── */
+    .view-panel { overflow:hidden; display:flex; flex-direction:column; height:100%; }
+    .view-panel.hidden { display:none !important; }
 
-    .btn {
-      cursor: pointer;
-      border: none;
-      border-radius: var(--radius);
-      padding: 6px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      transition: opacity .15s, transform .1s;
-    }
-    .btn:active { transform: scale(.97); }
-    .btn:disabled { opacity: .4; cursor: default; }
+    /* ── Logs ─────────────────────────────────────────────────── */
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+      padding:8px 20px; background:var(--surface); border-bottom:1px solid var(--border); }
+    .level-filter { display:flex; gap:4px; }
+    .level-btn { cursor:pointer; border:1px solid transparent; border-radius:20px;
+      padding:3px 12px; font-size:12px; font-weight:700; letter-spacing:.3px;
+      transition:opacity .15s; user-select:none; }
+    .level-btn[data-level="ALL"] { background:var(--surface2); color:var(--text); border-color:var(--border); }
+    .level-btn[data-level="INFO"] { background:#1a3a5c; color:var(--blue); }
+    .level-btn[data-level="WARN"] { background:#3a2e00; color:var(--orange); }
+    .level-btn[data-level="ERROR"] { background:#3a1010; color:var(--red); }
+    .level-btn[data-level="DEBUG"] { background:#1e2a1e; color:var(--green); }
+    .level-btn.active { outline:2px solid currentColor; outline-offset:1px; }
+    [data-theme="light"] .level-btn[data-level="INFO"] { background:#ddf4ff; color:#0969da; }
+    [data-theme="light"] .level-btn[data-level="WARN"] { background:#fff8c5; color:#9a6700; }
+    [data-theme="light"] .level-btn[data-level="ERROR"] { background:#ffebe9; color:#cf222e; }
+    [data-theme="light"] .level-btn[data-level="DEBUG"] { background:#dafbe1; color:#1a7f37; }
+    .search-box { flex:1; min-width:120px; }
+    .toolbar-right { display:flex; gap:8px; align-items:center; margin-left:auto; }
+    .count-badge { font-size:12px; color:var(--text-dim); background:var(--surface2);
+      border:1px solid var(--border); border-radius:12px; padding:2px 10px; }
+    .toggle-wrap { display:flex; align-items:center; gap:6px; cursor:pointer;
+      user-select:none; font-size:12px; color:var(--text-dim); }
+    .toggle-wrap input[type="checkbox"] { accent-color:var(--accent); width:14px; height:14px; cursor:pointer; }
+    .log-panel-header { padding:8px 20px; background:var(--surface); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .agent-status-badge { display:flex; align-items:center; gap:6px; font-size:12px; }
+    .agent-meta { font-size:12px; color:var(--text-dim); }
+    .agent-meta span { color:var(--text); }
+    .log-col-header { display:flex; background:var(--surface2); border-bottom:1px solid var(--border);
+      font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); flex-shrink:0; }
+    .hcell { padding:6px 10px; }
+    .hcell-time { width:165px; flex-shrink:0; }
+    .hcell-level { width:70px; flex-shrink:0; }
+    .hcell-agent { width:120px; flex-shrink:0; }
+    .hcell-source { width:160px; flex-shrink:0; }
+    .hcell-msg { flex:1; }
+    .log-scroll { flex:1; overflow-y:auto; font-family:var(--font-mono); font-size:12.5px; }
+    .log-row { display:flex; border-bottom:1px solid rgba(48,54,61,.4);
+      cursor:pointer; transition:background .08s; align-items:flex-start; }
+    .log-row:hover { background:rgba(255,255,255,.03); }
+    [data-theme="light"] .log-row:hover { background:rgba(0,0,0,.03); }
+    .cell { padding:4px 10px; overflow:hidden; text-overflow:ellipsis; }
+    .cell-time { width:165px; flex-shrink:0; color:var(--text-dim); white-space:nowrap; }
+    .cell-level { width:70px; flex-shrink:0; }
+    .cell-agent { width:120px; flex-shrink:0; color:var(--purple); font-size:11px; white-space:nowrap; }
+    .cell-source { width:160px; flex-shrink:0; color:var(--purple); white-space:nowrap; }
+    .cell-msg { flex:1; word-break:break-word; color:var(--text); }
+    .badge { display:inline-block; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:700; }
+    .badge-INFO { background:#1a3a5c; color:var(--blue); }
+    .badge-WARN { background:#3a2e00; color:var(--orange); }
+    .badge-ERROR { background:#3a1010; color:var(--red); }
+    .badge-DEBUG { background:#1e2a1e; color:var(--green); }
+    .badge-default { background:var(--surface2); color:var(--text-dim); }
+    [data-theme="light"] .badge-INFO { background:#ddf4ff; color:#0969da; }
+    [data-theme="light"] .badge-WARN { background:#fff8c5; color:#9a6700; }
+    [data-theme="light"] .badge-ERROR { background:#ffebe9; color:#cf222e; }
+    [data-theme="light"] .badge-DEBUG { background:#dafbe1; color:#1a7f37; }
+    mark { background:rgba(255,210,0,.25); color:#ffd200; border-radius:2px; }
+    [data-theme="light"] mark { background:rgba(255,210,0,.4); color:#6e5a00; }
+    .empty-state { flex:1; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:12px; color:var(--text-dim); padding:40px; text-align:center; }
+    .empty-state svg { opacity:.3; }
+    .empty-state h3 { font-size:16px; color:var(--text); }
+    .empty-state p { font-size:13px; max-width:360px; }
 
-    .btn-primary   { background: var(--accent2); color: #fff; }
-    .btn-danger    { background: #b62324; color: #fff; }
-    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    /* ── Dashboard ───────────────────────────────────────────── */
+    #dashboard-view { overflow-y:auto; padding:20px; }
+    .dash-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:20px; }
+    .dash-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:16px 20px; box-shadow:var(--card-shadow); }
+    .dash-card .dc-label { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); margin-bottom:4px; }
+    .dash-card .dc-value { font-size:28px; font-weight:700; font-family:var(--font-mono); }
+    .dash-card .dc-value.clr-blue { color:var(--blue); }
+    .dash-card .dc-value.clr-red { color:var(--red); }
+    .dash-card .dc-value.clr-orange { color:var(--orange); }
+    .dash-card .dc-value.clr-green { color:var(--green); }
+    .dash-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-bottom:20px; }
+    .dash-chart-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:16px 20px; box-shadow:var(--card-shadow); }
+    .dash-chart-card.wide { grid-column:1/-1; }
+    .dash-chart-card h3 { font-size:13px; color:var(--text-dim); margin-bottom:12px; text-transform:uppercase; letter-spacing:.5px; }
+    .chart-svg { width:100%; height:180px; }
+    .chart-svg text { font-family:var(--font-mono); font-size:10px; fill:var(--text-dim); }
+    .chart-svg .grid-line { stroke:var(--border); stroke-width:.5; }
+    .chart-svg .data-line { fill:none; stroke:var(--accent); stroke-width:2; stroke-linejoin:round; }
+    .chart-svg .data-area { fill:var(--accent); opacity:.1; }
+    .chart-svg .data-dot { fill:var(--accent); r:3; }
+    .doughnut-wrap { display:flex; align-items:center; gap:24px; justify-content:center; }
+    .doughnut-svg { width:150px; height:150px; }
+    .doughnut-legend { display:flex; flex-direction:column; gap:8px; }
+    .doughnut-legend-item { display:flex; align-items:center; gap:8px; font-size:13px; }
+    .doughnut-legend-dot { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+    .doughnut-legend-count { font-family:var(--font-mono); font-weight:600; }
+    .metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+    .metric-agent-card { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; }
+    .metric-agent-card h4 { font-size:13px; color:var(--accent); margin-bottom:10px; font-family:var(--font-mono); }
+    .gauge-row { display:flex; gap:16px; }
+    .gauge { text-align:center; flex:1; }
+    .gauge svg { width:70px; height:70px; }
+    .gauge-bg { fill:none; stroke:var(--border); stroke-width:7; }
+    .gauge-fill { fill:none; stroke-width:7; stroke-linecap:round; transition:stroke-dasharray .6s; }
+    .gauge-text { font-size:12px; font-weight:700; font-family:var(--font-mono); margin-top:4px; }
+    .gauge-label { font-size:10px; color:var(--text-dim); text-transform:uppercase; }
 
-    .server-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: auto;
-    }
-    .server-group label { white-space: nowrap; }
-    .server-group input { width: 220px; }
+    /* ── Activity view ───────────────────────────────────────── */
+    #activity-view { overflow-y:auto; padding:20px; }
+    .act-section { margin-bottom:24px; }
+    .act-section h3 { font-size:13px; text-transform:uppercase; letter-spacing:.5px;
+      color:var(--text-dim); margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+    .act-current { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:20px; box-shadow:var(--card-shadow); display:flex; align-items:center; gap:16px; }
+    .act-current-icon { font-size:36px; }
+    .act-current-info { flex:1; }
+    .act-current-title { font-size:16px; font-weight:600; color:var(--text); word-break:break-word; }
+    .act-current-process { font-size:12px; color:var(--accent); font-family:var(--font-mono); margin-top:2px; }
+    .act-current-time { font-size:11px; color:var(--text-dim); margin-top:4px; }
+    .act-apps-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+    .act-app-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:10px 14px; display:flex; align-items:center; gap:10px; transition:background .15s; }
+    .act-app-card:hover { background:var(--surface2); }
+    .act-app-icon { font-size:18px; flex-shrink:0; width:28px; text-align:center; }
+    .act-app-info { min-width:0; flex:1; }
+    .act-app-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .act-app-process { font-size:11px; color:var(--accent); font-family:var(--font-mono); }
+    .hist-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px; }
+    .hist-row:hover { background:var(--surface2); border-radius:4px; }
+    .hist-time { width:130px; flex-shrink:0; color:var(--text-dim); font-family:var(--font-mono); font-size:11px; white-space:nowrap; }
+    .hist-browser { width:60px; flex-shrink:0; font-size:11px; font-weight:600; }
+    .hist-browser.chrome { color:#4285F4; }
+    .hist-browser.edge { color:#0078D7; }
+    .hist-browser.firefox { color:#FF7139; }
+    .hist-title { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hist-url { flex:1; font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hist-url a { color:var(--accent); text-decoration:none; }
+    .hist-url a:hover { text-decoration:underline; }
+    .act-empty { text-align:center; color:var(--text-dim); padding:40px; font-size:13px; }
 
-    /* ── Toolbar (filters) ───────────────────────────────────────────── */
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      padding: 8px 24px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-    }
+    /* ── Screen view (live viewer) ───────────────────────────── */
+    #screen-view { overflow:hidden; display:flex; flex-direction:column; height:100%; }
+    .screen-toolbar { display:flex; gap:10px; align-items:center; padding:8px 20px;
+      background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+    .screen-toolbar .st-label { font-size:12px; color:var(--text-dim); }
+    .screen-toolbar .st-indicator { display:flex; align-items:center; gap:5px; }
+    .screen-toolbar .st-dot { width:8px; height:8px; border-radius:50%; }
+    .screen-toolbar .st-dot.live { background:var(--red); box-shadow:0 0 6px var(--red); animation:blink 1.5s infinite; }
+    .screen-toolbar .st-dot.off { background:var(--text-dim); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .screen-toolbar .st-fps { font-family:var(--font-mono); font-size:12px; color:var(--accent); }
+    .screen-toolbar .st-size { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); }
+    .screen-area { flex:1; overflow:auto; display:flex; align-items:center; justify-content:center;
+      background:#000; position:relative; cursor:default; }
+    .screen-area img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
+    .screen-area.fullscreen { position:fixed; inset:0; z-index:2000; }
+    .screen-empty { position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:12px; color:var(--text-dim); font-size:13px; }
+    .screen-empty svg { opacity:.3; }
+    .screen-empty h3 { font-size:16px; color:var(--text); }
+    .screen-empty p { max-width:320px; }
 
-    .level-filter {
-      display: flex;
-      gap: 4px;
-    }
+    /* ── Modal ────────────────────────────────────────────────── */
+    .modal-overlay { position:fixed; inset:0; background:var(--modal-bg);
+      display:none; align-items:center; justify-content:center; z-index:1000; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      width:min(600px,90vw); max-height:80vh; display:flex; flex-direction:column;
+      box-shadow:0 8px 30px rgba(0,0,0,.4); }
+    .modal-header { display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px; border-bottom:1px solid var(--border); }
+    .modal-header h3 { font-size:15px; color:var(--text); }
+    .modal-close { cursor:pointer; background:none; border:none; color:var(--text-dim);
+      font-size:22px; padding:0 4px; line-height:1; transition:color .15s; }
+    .modal-close:hover { color:var(--red); }
+    .modal-body { padding:20px; overflow-y:auto; font-size:13px; }
+    .modal-field { margin-bottom:14px; }
+    .modal-field-label { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); margin-bottom:4px; }
+    .modal-field-value { font-family:var(--font-mono); font-size:13px; line-height:1.6;
+      background:var(--surface2); border-radius:var(--radius); padding:8px 12px;
+      word-break:break-word; white-space:pre-wrap; }
+    .modal-copy { cursor:pointer; background:var(--surface2); border:1px solid var(--border);
+      border-radius:var(--radius); color:var(--text-dim); padding:5px 14px;
+      font-size:12px; margin-top:8px; transition:color .15s; }
+    .modal-copy:hover { color:var(--accent); }
 
-    .level-btn {
-      cursor: pointer;
-      border: 1px solid transparent;
-      border-radius: 20px;
-      padding: 3px 12px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: .3px;
-      transition: opacity .15s;
-      user-select: none;
-    }
-    .level-btn[data-level="ALL"]   { background: var(--surface2); color: var(--text);   border-color: var(--border); }
-    .level-btn[data-level="INFO"]  { background: #1a3a5c; color: var(--blue); }
-    .level-btn[data-level="WARN"]  { background: #3a2e00; color: var(--orange); }
-    .level-btn[data-level="ERROR"] { background: #3a1010; color: var(--red); }
-    .level-btn[data-level="DEBUG"] { background: #1e2a1e; color: var(--green); }
-    .level-btn.active { outline: 2px solid currentColor; outline-offset: 1px; }
-
-    .search-box {
-      flex: 1;
-      min-width: 180px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      padding: 5px 12px;
-      font-size: 13px;
-      outline: none;
-      transition: border-color .2s;
-    }
-    .search-box:focus { border-color: var(--accent); }
-    .search-box::placeholder { color: var(--text-dim); }
-
-    .toolbar-right {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-left: auto;
-    }
-
-    .count-badge {
-      font-size: 12px;
-      color: var(--text-dim);
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2px 10px;
-    }
-
-    /* toggle auto-scroll */
-    .toggle-wrap {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      user-select: none;
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-    .toggle-wrap input[type="checkbox"] {
-      accent-color: var(--accent);
-      width: 14px; height: 14px;
-      cursor: pointer;
-    }
-
-    /* ── Main content ────────────────────────────────────────────────── */
-    .content {
-      display: grid;
-      grid-template-columns: 240px 1fr;
-      overflow: hidden;
-    }
-
-    /* ── Agent sidebar ───────────────────────────────────────────────── */
-    .sidebar {
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar-header {
-      padding: 12px 16px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--text-dim);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .agent-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 16px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border);
-      transition: background .15s;
-    }
-    .agent-item:hover { background: var(--surface2); }
-    .agent-item.active { background: var(--surface2); border-left: 3px solid var(--accent); }
-
-    .agent-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .agent-dot.online  { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .agent-dot.offline { background: var(--text-dim); }
-
-    .agent-info { min-width: 0; }
-    .agent-ip   { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
-    .agent-host { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    .no-agents {
-      padding: 24px 16px;
-      text-align: center;
-      color: var(--text-dim);
-      font-size: 12px;
-    }
-
-    /* ── Log panel ───────────────────────────────────────────────────── */
-    .log-panel {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: var(--bg);
-    }
-
-    .log-panel-header {
-      padding: 10px 20px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .agent-status-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-    }
-
-    .agent-meta { font-size: 12px; color: var(--text-dim); }
-    .agent-meta span { color: var(--text); }
-
-    /* ── Log table ───────────────────────────────────────────────────── */
-    .log-container {
-      flex: 1;
-      overflow-y: auto;
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    thead th {
-      position: sticky;
-      top: 0;
-      background: var(--surface2);
-      color: var(--text-dim);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      text-align: left;
-      padding: 6px 12px;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-      z-index: 10;
-    }
-
-    tbody tr {
-      border-bottom: 1px solid rgba(48, 54, 61, .5);
-      transition: background .1s;
-    }
-    tbody tr:hover { background: rgba(255,255,255,.03); }
-
-    td { padding: 5px 12px; vertical-align: top; }
-
-    .col-time   { color: var(--text-dim); white-space: nowrap; width: 170px; }
-    .col-level  { width: 70px; }
-    .col-source { color: var(--purple); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
-    .col-msg    { word-break: break-word; color: var(--text); }
-
-    .badge {
-      display: inline-block;
-      border-radius: 4px;
-      padding: 1px 7px;
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .badge-INFO  { background: #1a3a5c; color: var(--blue); }
-    .badge-WARN  { background: #3a2e00; color: var(--orange); }
-    .badge-ERROR { background: #3a1010; color: var(--red); }
-    .badge-DEBUG { background: #1e2a1e; color: var(--green); }
-    .badge-default { background: var(--surface2); color: var(--text-dim); }
-
-    /* highlight search match */
-    mark { background: rgba(255, 210, 0, .25); color: #ffd200; border-radius: 2px; }
-
-    /* ── Empty / status states ───────────────────────────────────────── */
-    .empty-state {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: var(--text-dim);
-      padding: 40px;
-      text-align: center;
-    }
-    .empty-state svg { opacity: .3; }
-    .empty-state h3 { font-size: 16px; color: var(--text); }
-    .empty-state p  { font-size: 13px; max-width: 360px; }
-
-    /* ── Connection status pill ──────────────────────────────────────── */
-    #conn-status {
-      font-size: 12px;
-      padding: 3px 10px;
-      border-radius: 12px;
-      margin-left: auto;
-    }
-    #conn-status.connected    { background: #1a3d1a; color: var(--green); }
-    #conn-status.disconnected { background: #3a1010; color: var(--red); }
-    #conn-status.connecting   { background: #3a2e00; color: var(--orange); }
-
-    /* ── Scrollbar ───────────────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #484f58; }
-
-    /* ── Responsive ─────────────────────────────────────────── */
-    @media (max-width: 700px) {
-      .content { grid-template-columns: 1fr; }
-      .sidebar { max-height: 160px; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+    ::-webkit-scrollbar-thumb:hover { background:#484f58; }
+    @media (max-width:700px) {
+      .content { grid-template-columns:1fr; }
+      .sidebar { max-height:150px; }
     }
   </style>
 </head>
 <body>
-
 <div class="app">
-
-  <!-- ── Header ─────────────────────────────────────────────────────── -->
   <header>
     <div class="logo">
       <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -401,413 +306,567 @@
         <path d="M6 8h16M6 14h10M6 20h13" stroke="white" stroke-width="2" stroke-linecap="round"/>
         <circle cx="21" cy="20" r="4" fill="#f85149" stroke="#0d1117" stroke-width="1.5"/>
       </svg>
-      <div>
-        <div class="logo-title">Log Monitor</div>
-        <div class="logo-subtitle">Hakyky wagtda uzak ulgam loglaryny görmek</div>
-      </div>
+      <div><div class="logo-title">Log Monitor</div><div class="logo-subtitle">Hakyky wagtda ulgam gözegçiligi</div></div>
     </div>
-
-    <!-- Connect to server -->
-    <div class="server-group">
-      <label>Serwer:</label>
-      <input id="server-url" type="text" value="ws://localhost:8000" placeholder="ws://host:8000" />
+    <div class="hdr-right">
+      <div class="server-group"><label>Serwer:</label><input id="server-url" type="text" value="" placeholder="ws://host:8000" /></div>
+      <button class="theme-btn" id="theme-toggle" title="Temany üýtget">🌙</button>
+      <span id="conn-status" class="disconnected">● Birikdirilmedi</span>
     </div>
-
-    <span id="conn-status" class="disconnected">● Birikdirilmedi</span>
   </header>
 
-  <!-- ── Connect bar ────────────────────────────────────────────────── -->
-  <div class="connect-bar">
-    <label>Kompýuteriň IP-si:</label>
-    <input id="ip-input" type="text" placeholder="192.168.1.5" />
-    <button class="btn btn-primary" id="btn-watch">Loglary görmek</button>
-    <button class="btn btn-danger"  id="btn-stop" disabled>Duruzmak</button>
-    <button class="btn btn-secondary" id="btn-clear">Arassalamak</button>
-    <button class="btn btn-secondary" id="btn-export">CSV eksport</button>
-  </div>
-
-  <!-- ── Filters toolbar ────────────────────────────────────────────── -->
-  <div class="toolbar">
-    <div class="level-filter">
-      <span class="level-btn active" data-level="ALL">Hemmesi</span>
-      <span class="level-btn" data-level="INFO">INFO</span>
-      <span class="level-btn" data-level="WARN">WARN</span>
-      <span class="level-btn" data-level="ERROR">ERROR</span>
-      <span class="level-btn" data-level="DEBUG">DEBUG</span>
-    </div>
-    <input class="search-box" id="search" type="text" placeholder="Habar ýa-da çeşme boýunça gözleg…" />
-    <div class="toolbar-right">
-      <span class="count-badge" id="log-count">0 ýazgy</span>
-      <label class="toggle-wrap">
-        <input type="checkbox" id="auto-scroll" checked />
-        Awtomatik aýlamak
-      </label>
+  <div class="tab-bar">
+    <nav class="tabs">
+      <button class="tab active" data-tab="logs">Loglar</button>
+      <button class="tab" data-tab="activity">Işjeňlik</button>
+      <button class="tab" data-tab="screen">Ekran</button>
+      <button class="tab" data-tab="dashboard">Dashboard</button>
+    </nav>
+    <div class="connect-controls">
+      <label>IP:</label>
+      <input id="ip-input" type="text" placeholder="192.168.1.5" />
+      <label title="Täzeleniş interwal (sek)">⏱️</label>
+      <input id="interval-input" type="number" min="1" max="120" value="5" title="Interwal (sekunt)" />
+      <label style="font-size:11px;color:var(--text-dim)">sek</label>
+      <button class="btn btn-primary" id="btn-watch">Görmek</button>
+      <button class="btn btn-multi" id="btn-multi">Hemmesi</button>
+      <button class="btn btn-danger" id="btn-stop" disabled>Duruzmak</button>
+      <button class="btn btn-secondary" id="btn-clear">Arassalamak</button>
+      <button class="btn btn-secondary" id="btn-export">CSV</button>
     </div>
   </div>
 
-  <!-- ── Main ───────────────────────────────────────────────────────── -->
   <div class="content">
-
-    <!-- ── Sidebar: known agents ─────────────────────────────────────── -->
     <div class="sidebar">
       <div class="sidebar-header">Agentler</div>
       <div id="agent-list"><div class="no-agents">Birikdirilen agent ýok</div></div>
     </div>
 
-    <!-- ── Log panel ──────────────────────────────────────────────────── -->
-    <div class="log-panel" id="log-panel">
+    <div style="overflow:hidden;display:flex;flex-direction:column;">
 
-      <!-- empty state -->
-      <div class="empty-state" id="empty-state">
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-          <rect x="8" y="12" width="48" height="40" rx="4" stroke="#8b949e" stroke-width="2"/>
-          <path d="M16 24h32M16 32h24M16 40h16" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <h3>Maglumat ýok</h3>
-        <p>Kompýuteriň IP-sini giriziň we «Loglary görmek» düwmesine basyň.<br/>Nyşana alnan kompýuterde agent işleýän bolmalydyr.</p>
-      </div>
-
-      <!-- log table (hidden until data arrives) -->
-      <div class="log-panel-header" id="panel-header" style="display:none;">
-        <div class="agent-status-badge" id="agent-status-badge">
-          <div class="agent-dot offline" id="agent-dot"></div>
-          <span id="agent-status-text">—</span>
+      <!-- Logs -->
+      <div id="logs-view" class="view-panel">
+        <div class="toolbar">
+          <div class="level-filter">
+            <span class="level-btn active" data-level="ALL">Hemmesi</span>
+            <span class="level-btn" data-level="INFO">INFO</span>
+            <span class="level-btn" data-level="WARN">WARN</span>
+            <span class="level-btn" data-level="ERROR">ERROR</span>
+            <span class="level-btn" data-level="DEBUG">DEBUG</span>
+          </div>
+          <input class="search-box" id="search" type="text" placeholder="Gözleg…" />
+          <div class="toolbar-right">
+            <span class="count-badge" id="log-count">0 ýazgy</span>
+            <label class="toggle-wrap"><input type="checkbox" id="auto-scroll" checked /> Awtomatik aýlamak</label>
+          </div>
         </div>
-        <div class="agent-meta" id="agent-meta"></div>
+        <div class="log-panel-header" id="panel-header" style="display:none">
+          <div class="agent-status-badge"><div class="agent-dot offline" id="agent-dot"></div><span id="agent-status-text">—</span></div>
+          <div class="agent-meta" id="agent-meta"></div>
+        </div>
+        <div class="empty-state" id="empty-state">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="8" y="12" width="48" height="40" rx="4" stroke="#8b949e" stroke-width="2"/><path d="M16 24h32M16 32h24M16 40h16" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/></svg>
+          <h3>Maglumat ýok</h3><p>IP giriziň we «Görmek» basyň, ýa-da «Hemmesi» bilen ähli agentleri görüň.</p>
+        </div>
+        <div id="log-content" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+          <div class="log-col-header">
+            <div class="hcell hcell-time">Wagt</div>
+            <div class="hcell hcell-level">Dereje</div>
+            <div class="hcell hcell-agent" id="hcell-agent" style="display:none">Agent</div>
+            <div class="hcell hcell-source">Çeşme</div>
+            <div class="hcell hcell-msg">Habar</div>
+          </div>
+          <div class="log-scroll" id="log-scroll"><div id="spacer-top"></div><div id="log-rows"></div><div id="spacer-bottom"></div></div>
+        </div>
       </div>
 
-      <div class="log-container" id="log-container" style="display:none;">
-        <table>
-          <thead>
-            <tr>
-              <th class="col-time">Wagt (UTC)</th>
-              <th class="col-level">Derejeleri</th>
-              <th class="col-source">Çeşme</th>
-              <th class="col-msg">Habar</th>
-            </tr>
-          </thead>
-          <tbody id="log-tbody"></tbody>
-        </table>
+      <!-- Activity -->
+      <div id="activity-view" class="view-panel hidden">
+        <div id="act-content">
+          <div class="act-empty" id="act-empty">Agent saýlaň ýa-da «Görmek» basyň — işjeňlik maglumatlary şu ýerde görkeziler.</div>
+          <div id="act-data" style="display:none">
+            <div class="act-section"><h3>📌 Häzirki açyk penjiräsi</h3>
+              <div class="act-current" id="act-current"><div class="act-current-icon">🖥️</div>
+                <div class="act-current-info"><div class="act-current-title" id="act-win-title">—</div>
+                  <div class="act-current-process" id="act-win-process">—</div>
+                  <div class="act-current-time" id="act-win-time">—</div></div></div></div>
+            <div class="act-section"><h3>📂 Açyk programmalar</h3><div class="act-apps-grid" id="act-apps"></div></div>
+            <div class="act-section"><h3>🌐 Brauzer taryhy (soňky)</h3><div id="act-history"></div></div>
+          </div>
+        </div>
       </div>
 
-    </div><!-- /.log-panel -->
-  </div><!-- /.content -->
+      <!-- Screen (Live Viewer) -->
+      <div id="screen-view" class="view-panel hidden">
+        <div class="screen-toolbar">
+          <div class="st-indicator"><div class="st-dot off" id="screen-dot"></div><span class="st-label" id="screen-status">Birikdirilmedi</span></div>
+          <span class="st-fps" id="screen-fps"></span>
+          <span class="st-size" id="screen-size"></span>
+          <div style="flex:1"></div>
+          <button class="btn btn-secondary" id="btn-screen-fullscreen" title="Doly ekran" style="font-size:16px;padding:4px 10px;">⛶</button>
+        </div>
+        <div class="screen-area" id="screen-area">
+          <div class="screen-empty" id="screen-empty">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <rect x="8" y="10" width="48" height="34" rx="3" stroke="#8b949e" stroke-width="2"/>
+              <path d="M22 48h20" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/>
+              <path d="M28 44v4M36 44v4" stroke="#8b949e" stroke-width="2"/>
+              <circle cx="32" cy="27" r="6" stroke="#8b949e" stroke-width="2"/>
+              <path d="M32 21v1M32 33v-1M26 27h1M37 27h1" stroke="#8b949e" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <h3>Ekran görnüşi</h3>
+            <p>Agent saýlaň we «Görmek» basyň — agentiň ekrany hakyky wagtda şu ýerde görkeziler.</p>
+          </div>
+          <img id="screen-img" src="" alt="Ekran" style="display:none" />
+        </div>
+      </div>
 
-</div><!-- /.app -->
+      <!-- Dashboard -->
+      <div id="dashboard-view" class="view-panel hidden">
+        <div class="dash-cards" id="dash-cards"></div>
+        <div class="dash-row">
+          <div class="dash-chart-card"><h3>Loglar / minut</h3><div id="chart-rate"></div></div>
+          <div class="dash-chart-card"><h3>Derejeler boýunça</h3><div id="chart-levels"></div></div>
+        </div>
+        <div class="dash-row">
+          <div class="dash-chart-card wide"><h3>Ulgam metrikalary</h3><div id="metrics-panel" class="metrics-grid"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header"><h3>Log jikme-jiklikleri</h3><button class="modal-close" id="modal-close">&times;</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════════════
-// State
-// ═══════════════════════════════════════════════════════════════════════
-let serverBaseWs  = "ws://localhost:8000";
-let serverBaseHttp = "http://localhost:8000";
-
-let viewWs   = null;   // WebSocket to /ws/view/:ip
-let agentWs  = null;   // WebSocket to /ws/agent (for live agent list)
-let currentIp = null;
-
-let allLogs = [];          // full unfiltered log array
-let activeLevel = "ALL";
-let searchQuery = "";
-
-// ═══════════════════════════════════════════════════════════════════════
-// DOM refs
-// ═══════════════════════════════════════════════════════════════════════
-const ipInput       = document.getElementById("ip-input");
-const serverUrlEl   = document.getElementById("server-url");
-const btnWatch      = document.getElementById("btn-watch");
-const btnStop       = document.getElementById("btn-stop");
-const btnClear      = document.getElementById("btn-clear");
-const btnExport     = document.getElementById("btn-export");
-const connStatus    = document.getElementById("conn-status");
-const logTbody      = document.getElementById("log-tbody");
-const logContainer  = document.getElementById("log-container");
-const emptyState    = document.getElementById("empty-state");
-const panelHeader   = document.getElementById("panel-header");
-const agentDot      = document.getElementById("agent-dot");
-const agentStatusTx = document.getElementById("agent-status-text");
-const agentMetaEl   = document.getElementById("agent-meta");
-const agentListEl   = document.getElementById("agent-list");
-const logCountEl    = document.getElementById("log-count");
-const searchInput   = document.getElementById("search");
-const autoScrollChk = document.getElementById("auto-scroll");
-
-// ═══════════════════════════════════════════════════════════════════════
-// Helpers
-// ═══════════════════════════════════════════════════════════════════════
-function esc(s) {
-  return String(s)
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+// ── Auto-redirect from file:// to server ───────────────────
+if(window.location.protocol==="file:"){
+  window.location.href="http://localhost:8000";
 }
 
-function highlight(text, query) {
-  if (!query) return esc(text);
-  const re = new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + ")", "gi");
-  return esc(text).replace(re, "<mark>$1</mark>");
+// ── State ──────────────────────────────────────────────────
+let serverBaseWs, serverBaseHttp;
+// Auto-detect from current page URL when served by the server
+if(window.location.protocol.startsWith("http")){
+  serverBaseHttp=window.location.origin;
+  serverBaseWs=serverBaseHttp.replace(/^http/,"ws");
+} else {
+  serverBaseWs="ws://localhost:8000";
+  serverBaseHttp="http://localhost:8000";
+}
+let viewWs=null, multiWs=null, currentIp=null;
+let currentMode="none", currentTab="logs";
+let allLogs=[], filteredCache=[], activeLevel="ALL", searchQuery="";
+let knownAgents={}, dashData=null, dashTimer=null;
+let activityData={}, historyData={}, screenshotData={};
+let activityRefreshTimer=null, screenRefreshTimer=null;
+const VROW_H=28, VBUFFER=40;
+
+function getRefreshInterval(){ return Math.max(1, parseInt(document.getElementById("interval-input").value)||5)*1000; }
+
+// ── DOM ────────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const ipInput=$("ip-input"), serverUrlEl=$("server-url"), btnWatch=$("btn-watch"),
+  btnMulti=$("btn-multi"), btnStop=$("btn-stop"), btnClear=$("btn-clear"),
+  btnExport=$("btn-export"), connStatus=$("conn-status"), logScroll=$("log-scroll"),
+  logRows=$("log-rows"), spacerTop=$("spacer-top"), spacerBottom=$("spacer-bottom"),
+  emptyState=$("empty-state"), panelHeader=$("panel-header"), logContent=$("log-content"),
+  agentDot=$("agent-dot"), agentStatusTx=$("agent-status-text"), agentMetaEl=$("agent-meta"),
+  agentListEl=$("agent-list"), logCountEl=$("log-count"), searchInput=$("search"),
+  autoScrollChk=$("auto-scroll"), detailModal=$("detail-modal"), modalBody=$("modal-body"),
+  hcellAgent=$("hcell-agent"), logsView=$("logs-view"), dashView=$("dashboard-view"),
+  actView=$("activity-view"), screenView=$("screen-view"), themeToggle=$("theme-toggle");
+
+// ── Helpers ────────────────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function highlight(t,q){ if(!q) return esc(t); const r=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"); return esc(t).replace(r,"<mark>$1</mark>"); }
+function badgeClass(l){ return ["INFO","WARN","ERROR","DEBUG"].includes(l)?`badge-${l}`:"badge-default"; }
+function formatTime(iso){ return iso?iso.replace("T"," ").replace("Z",""):"—"; }
+function setConnStatus(s,t){ connStatus.className=s; connStatus.textContent="● "+t; }
+function appIcon(proc){
+  const p=(proc||"").toLowerCase();
+  if(p.includes("chrome"))return"🌐"; if(p.includes("msedge")||p.includes("edge"))return"🌍";
+  if(p.includes("firefox"))return"🦊"; if(p.includes("explorer"))return"📁";
+  if(p.includes("code"))return"💻"; if(p.includes("notepad"))return"📝";
+  if(p.includes("word")||p.includes("winword"))return"📄"; if(p.includes("excel"))return"📊";
+  if(p.includes("powershell")||p.includes("cmd")||p.includes("terminal")||p.includes("windowsterminal"))return"⬛";
+  if(p.includes("discord"))return"💬"; if(p.includes("telegram"))return"💬";
+  if(p.includes("teams"))return"👥"; if(p.includes("outlook"))return"📧";
+  if(p.includes("spotify"))return"🎵"; if(p.includes("vlc")||p.includes("wmplayer"))return"🎬";
+  return"🪟";
 }
 
-function badgeClass(level) {
-  return ["INFO","WARN","ERROR","DEBUG"].includes(level) ? `badge-${level}` : "badge-default";
-}
+// ── Theme ──────────────────────────────────────────────────
+function applyTheme(t){ document.documentElement.setAttribute("data-theme",t); themeToggle.textContent=t==="dark"?"🌙":"☀️"; try{localStorage.setItem("lm-theme",t);}catch(e){} }
+themeToggle.addEventListener("click",()=>{ const c=document.documentElement.getAttribute("data-theme")||"dark"; applyTheme(c==="dark"?"light":"dark"); });
+(function(){ try{const t=localStorage.getItem("lm-theme"); if(t) applyTheme(t);}catch(e){} })();
 
-function formatTime(iso) {
-  return iso ? iso.replace("T"," ").replace("Z","") : "—";
-}
+// ── Tabs ───────────────────────────────────────────────────
+const views = { logs:logsView, activity:actView, screen:screenView, dashboard:dashView };
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    tab.classList.add("active"); currentTab=tab.dataset.tab;
+    for(const[k,v]of Object.entries(views)) v.classList.toggle("hidden",k!==currentTab);
+    stopAllTimers();
+    if(currentTab==="dashboard"){refreshDashboard();dashTimer=setInterval(refreshDashboard,getRefreshInterval());}
+    if(currentTab==="activity"){renderActivity();fetchAndRenderActivity();activityRefreshTimer=setInterval(fetchAndRenderActivity,getRefreshInterval());}
+    if(currentTab==="screen"){renderScreenFromData();fetchAndRenderScreen();screenRefreshTimer=setInterval(fetchAndRenderScreen,getRefreshInterval());}
+  });
+});
+function stopAllTimers(){ if(dashTimer){clearInterval(dashTimer);dashTimer=null;} if(activityRefreshTimer){clearInterval(activityRefreshTimer);activityRefreshTimer=null;} if(screenRefreshTimer){clearInterval(screenRefreshTimer);screenRefreshTimer=null;} }
 
-function setConnStatus(state, text) {
-  connStatus.className = state;
-  connStatus.textContent = "● " + text;
-}
+// restart timers when interval changes
+$("interval-input").addEventListener("change",()=>{
+  stopAllTimers();
+  if(currentTab==="dashboard") dashTimer=setInterval(refreshDashboard,getRefreshInterval());
+  if(currentTab==="activity") activityRefreshTimer=setInterval(fetchAndRenderActivity,getRefreshInterval());
+  if(currentTab==="screen") screenRefreshTimer=setInterval(fetchAndRenderScreen,getRefreshInterval());
+});
 
-// ═══════════════════════════════════════════════════════════════════════
-// Render
-// ═══════════════════════════════════════════════════════════════════════
-function renderLogs() {
-  const q = searchQuery.toLowerCase();
-  const filtered = allLogs.filter(e => {
-    if (activeLevel !== "ALL" && e.level !== activeLevel) return false;
-    if (q && !e.message.toLowerCase().includes(q) && !e.source.toLowerCase().includes(q)) return false;
+// ── Virtual scroll ─────────────────────────────────────────
+function getFiltered(){
+  const q=searchQuery.toLowerCase();
+  return allLogs.filter(e=>{
+    if(activeLevel!=="ALL"&&e.level!==activeLevel) return false;
+    if(q&&!e.message.toLowerCase().includes(q)&&!e.source.toLowerCase().includes(q)) return false;
     return true;
   });
-
-  logCountEl.textContent = `${filtered.length.toLocaleString()} ýazgy`;
-
-  const rows = filtered.map(e => `
-    <tr>
-      <td class="col-time">${esc(formatTime(e.timestamp))}</td>
-      <td class="col-level"><span class="badge ${badgeClass(e.level)}">${esc(e.level)}</span></td>
-      <td class="col-source" title="${esc(e.source)}">${highlight(e.source, searchQuery)}</td>
-      <td class="col-msg">${highlight(e.message, searchQuery)}</td>
-    </tr>`).join("");
-
-  logTbody.innerHTML = rows;
-
-  if (autoScrollChk.checked) {
-    logContainer.scrollTop = logContainer.scrollHeight;
+}
+function renderLogs(){ filteredCache=getFiltered(); logCountEl.textContent=`${filteredCache.length.toLocaleString()} ýazgy`; renderVisible(); }
+function renderVisible(){
+  const total=filteredCache.length;
+  if(!total){logRows.innerHTML="";spacerTop.style.height="0";spacerBottom.style.height="0";return;}
+  const st=logScroll.scrollTop, vh=logScroll.clientHeight||600;
+  const si=Math.max(0,Math.floor(st/VROW_H)-VBUFFER), ei=Math.min(total,Math.ceil((st+vh)/VROW_H)+VBUFFER);
+  spacerTop.style.height=(si*VROW_H)+"px"; spacerBottom.style.height=((total-ei)*VROW_H)+"px";
+  const showA=currentMode==="multi",q=searchQuery;
+  let h="";
+  for(let i=si;i<ei;i++){const e=filteredCache[i];
+    h+=`<div class="log-row" data-idx="${i}" style="height:${VROW_H}px">`+
+      `<div class="cell cell-time">${esc(formatTime(e.timestamp))}</div>`+
+      `<div class="cell cell-level"><span class="badge ${badgeClass(e.level)}">${e.level}</span></div>`+
+      (showA?`<div class="cell cell-agent">${esc(e.agent_ip||"")}</div>`:"")+
+      `<div class="cell cell-source" title="${esc(e.source)}">${highlight(e.source,q)}</div>`+
+      `<div class="cell cell-msg">${highlight(e.message,q)}</div></div>`;
   }
+  logRows.innerHTML=h;
 }
+let scrollRaf=null;
+logScroll.addEventListener("scroll",()=>{if(scrollRaf)return;scrollRaf=requestAnimationFrame(()=>{renderVisible();scrollRaf=null;});});
+function scrollToBottom(){if(autoScrollChk.checked)logScroll.scrollTop=logScroll.scrollHeight;}
 
-function showLogPanel() {
-  emptyState.style.display  = "none";
-  panelHeader.style.display = "flex";
-  logContainer.style.display = "block";
+// ── Log modal ──────────────────────────────────────────────
+logRows.addEventListener("click",(ev)=>{const r=ev.target.closest(".log-row");if(!r)return;const e=filteredCache[parseInt(r.dataset.idx,10)];if(e)openDetail(e);});
+function openDetail(e){
+  modalBody.innerHTML=field("Wagt",formatTime(e.timestamp))+field("Dereje",`<span class="badge ${badgeClass(e.level)}">${esc(e.level)}</span>`)+
+    field("Agent IP",esc(e.agent_ip||currentIp||"—"))+field("Çeşme",esc(e.source))+field("Habar",esc(e.message))+
+    `<button class="modal-copy" onclick="copyMsg()">Habary kopiýala</button>`;
+  detailModal._msg=e.message; detailModal.classList.add("open");
 }
+function field(l,v){return `<div class="modal-field"><div class="modal-field-label">${l}</div><div class="modal-field-value">${v}</div></div>`;}
+window.copyMsg=()=>{navigator.clipboard.writeText(detailModal._msg||"").then(()=>{const b=detailModal.querySelector(".modal-copy");if(b){b.textContent="Kopiýalandy!";setTimeout(()=>b.textContent="Habary kopiýala",1500);}});};
+$("modal-close").addEventListener("click",()=>detailModal.classList.remove("open"));
+detailModal.addEventListener("click",(ev)=>{if(ev.target===detailModal)detailModal.classList.remove("open");});
+document.addEventListener("keydown",(ev)=>{if(ev.key==="Escape")detailModal.classList.remove("open");});
 
-function showEmptyState() {
-  emptyState.style.display  = "flex";
-  panelHeader.style.display = "none";
-  logContainer.style.display = "none";
-}
-
-function updateAgentStatus(info, status) {
-  const online = status === "online";
-  agentDot.className = `agent-dot ${online ? "online" : "offline"}`;
-  agentStatusTx.textContent = info
-    ? `${info.hostname || info.ip} — ${online ? "Online" : "Offline"}`
-    : (online ? "Online" : "Offline");
-  if (info) {
-    agentMetaEl.innerHTML =
-      `OS: <span>${esc(info.os || "—")}</span> &nbsp;|&nbsp; ` +
-      `IP: <span>${esc(info.ip)}</span> &nbsp;|&nbsp; ` +
-      `Birikdilen: <span>${esc(formatTime(info.connected_at))}</span>`;
+// ── Activity ───────────────────────────────────────────────
+async function fetchAndRenderActivity(){
+  const ip=currentIp||Object.keys(knownAgents)[0];
+  if(ip){
+    try{
+      const r=await fetch(`${serverBaseHttp}/api/activity/${encodeURIComponent(ip)}`);
+      if(r.ok){const d=await r.json(); if(d.activity)activityData[ip]=d.activity; if(d.browser_history)historyData[ip]=d.browser_history;}
+    }catch(e){/* file:// or network error — rely on WS data */}
   }
+  renderActivity();
+}
+function renderActivity(){
+  const ip=currentIp||Object.keys(activityData)[0];
+  const actEmpty=$("act-empty"), actData=$("act-data");
+  if(!ip||!activityData[ip]){actEmpty.style.display="block";actData.style.display="none";return;}
+  actEmpty.style.display="none"; actData.style.display="block";
+  const act=activityData[ip]||{}, hist=historyData[ip]||[];
+  const aw=act.active_window||{};
+  $("act-win-title").textContent=aw.title||"—";
+  $("act-win-process").textContent=aw.process||"—";
+  $("act-win-time").textContent=act.timestamp?`Soňky täzeleniş: ${formatTime(act.timestamp)}`:"";
+  $("act-current").querySelector(".act-current-icon").textContent=appIcon(aw.process);
+  const windows=act.open_windows||[];
+  const appsEl=$("act-apps");
+  if(!windows.length){appsEl.innerHTML='<div style="color:var(--text-dim);font-size:12px">Maglumat ýok</div>';}
+  else{appsEl.innerHTML=windows.map(w=>`<div class="act-app-card"><div class="act-app-icon">${appIcon(w.process)}</div><div class="act-app-info"><div class="act-app-name" title="${esc(w.title)}">${esc(w.title)}</div><div class="act-app-process">${esc(w.process)}</div></div></div>`).join("");}
+  const histEl=$("act-history");
+  if(!hist.length){histEl.innerHTML='<div style="color:var(--text-dim);font-size:12px">Brauzer taryhy ýok</div>';}
+  else{histEl.innerHTML=hist.map(h=>{const bc=(h.browser||"").toLowerCase().includes("chrome")?"chrome":(h.browser||"").toLowerCase().includes("edge")?"edge":(h.browser||"").toLowerCase().includes("firefox")?"firefox":"";
+    return `<div class="hist-row"><div class="hist-time">${esc(formatTime(h.visit_time))}</div><div class="hist-browser ${bc}">${esc(h.browser||"—")}</div><div class="hist-title" title="${esc(h.title)}">${esc(h.title||"(atsyz)")}</div><div class="hist-url"><a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(truncUrl(h.url))}</a></div></div>`;}).join("");}
+}
+function truncUrl(url){if(!url)return"";try{const u=new URL(url);let p=u.pathname;if(p.length>40)p=p.slice(0,40)+"…";return u.hostname+p;}catch(e){return url.length>60?url.slice(0,60)+"…":url;}}
+
+// ── Screen (live viewer) ───────────────────────────────────
+let screenFrameCount=0, screenFpsVal=0, screenFpsTimer=null, screenLastFrame=0;
+let screenBlobUrl=null; // for zero-copy blob display
+const screenImg=$("screen-img"), screenEmpty=$("screen-empty"),
+  screenDot=$("screen-dot"), screenStatusTx=$("screen-status"),
+  screenFpsEl=$("screen-fps"), screenSizeEl=$("screen-size"),
+  screenArea=$("screen-area");
+
+function startScreenFpsCounter(){
+  if(screenFpsTimer) return;
+  screenFpsTimer=setInterval(()=>{screenFpsVal=screenFrameCount;screenFrameCount=0;
+    screenFpsEl.textContent=screenFpsVal?`${screenFpsVal} FPS`:"";},1000);
+}
+function stopScreenFpsCounter(){if(screenFpsTimer){clearInterval(screenFpsTimer);screenFpsTimer=null;}screenFpsEl.textContent="";}
+
+// Show JPEG from Blob (binary WS frame) — fastest path, no base64
+function showScreenBlob(blob, ip){
+  if(screenBlobUrl) URL.revokeObjectURL(screenBlobUrl);
+  screenBlobUrl=URL.createObjectURL(blob);
+  screenEmpty.style.display="none";
+  screenImg.style.display="block";
+  screenImg.src=screenBlobUrl;
+  screenFrameCount++;
+  screenLastFrame=Date.now();
+  screenDot.className="st-dot live";
+  screenStatusTx.textContent=`${ip} — göni ýaýlym`;
+  screenSizeEl.textContent=`~${Math.round(blob.size/1024)} KB/kadr`;
+  startScreenFpsCounter();
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// Agent sidebar
-// ═══════════════════════════════════════════════════════════════════════
-let knownAgents = {};  // ip -> info
+// Show from base64 (fallback for REST / JSON WS / history)
+function showScreenFrame(b64, ip){
+  if(!b64) return;
+  screenshotData[ip]=b64;
+  screenEmpty.style.display="none";
+  screenImg.style.display="block";
+  screenImg.src="data:image/jpeg;base64,"+b64;
+  screenFrameCount++;
+  screenLastFrame=Date.now();
+  screenDot.className="st-dot live";
+  screenStatusTx.textContent=`${ip} — göni ýaýlym`;
+  const kb=Math.round(b64.length*3/4/1024);
+  screenSizeEl.textContent=`~${kb} KB/kadr`;
+  startScreenFpsCounter();
+}
 
-function renderAgentList() {
-  const entries = Object.values(knownAgents);
-  if (!entries.length) {
-    agentListEl.innerHTML = '<div class="no-agents">Birikdirilen agent ýok</div>';
-    return;
+function screenSetOffline(){
+  screenDot.className="st-dot off";
+  screenStatusTx.textContent="Birikdirilmedi";
+  screenFpsEl.textContent="";screenSizeEl.textContent="";
+  stopScreenFpsCounter();
+}
+
+// Render screen from cached WS data
+function renderScreenFromData(){
+  const ip=currentIp||Object.keys(screenshotData)[0];
+  if(ip&&screenshotData[ip]){showScreenFrame(screenshotData[ip],ip);}
+  else{screenEmpty.style.display="flex";screenImg.style.display="none";}
+}
+
+async function fetchAndRenderScreen(){
+  const ip=currentIp||Object.keys(knownAgents)[0];
+  if(!ip){screenEmpty.style.display="flex";screenImg.style.display="none";screenSetOffline();return;}
+  try{
+    const r=await fetch(`${serverBaseHttp}/api/screenshot/${encodeURIComponent(ip)}`);
+    if(r.ok){const d=await r.json(); if(d.data){showScreenFrame(d.data,ip);return;}}
+  }catch(e){}
+  if(screenshotData[ip]){showScreenFrame(screenshotData[ip],ip);}
+  else{screenEmpty.style.display="flex";screenImg.style.display="none";}
+}
+
+// Fullscreen toggle
+$("btn-screen-fullscreen").addEventListener("click",()=>{
+  if(document.fullscreenElement){document.exitFullscreen();}
+  else{screenArea.requestFullscreen().catch(()=>{});}
+});
+document.addEventListener("fullscreenchange",()=>{
+  screenArea.classList.toggle("fullscreen",!!document.fullscreenElement);
+});
+// double-click to fullscreen
+screenArea.addEventListener("dblclick",()=>{
+  if(document.fullscreenElement){document.exitFullscreen();}
+  else{screenArea.requestFullscreen().catch(()=>{});}
+});
+
+// ── UI state ───────────────────────────────────────────────
+function showLogPanel(){emptyState.style.display="none";logContent.style.display="flex";}
+function showEmptyState(){emptyState.style.display="flex";panelHeader.style.display="none";logContent.style.display="none";}
+function setMultiColumns(on){hcellAgent.style.display=on?"block":"none";}
+function updateAgentStatus(info,status){
+  const on=status==="online"; agentDot.className=`agent-dot ${on?"online":"offline"}`;
+  agentStatusTx.textContent=info?`${info.hostname||info.ip} — ${on?"Online":"Offline"}`:(on?"Online":"Offline");
+  if(info) agentMetaEl.innerHTML=`OS: <span>${esc(info.os||"—")}</span> | IP: <span>${esc(info.ip)}</span> | Topar: <span>${esc(info.group||"—")}</span>`;
+}
+
+// ── Sidebar ────────────────────────────────────────────────
+function renderAgentList(){
+  const entries=Object.values(knownAgents);
+  if(!entries.length){agentListEl.innerHTML='<div class="no-agents">Birikdirilen agent ýok</div>';return;}
+  const groups={};
+  entries.forEach(a=>{const g=a.group||"Toparlanmadyk";(groups[g]=groups[g]||[]).push(a);});
+  let h="";
+  for(const[grp,agents]of Object.entries(groups)){
+    h+=`<div class="group-label">${esc(grp)}</div>`;
+    for(const a of agents) h+=`<div class="agent-item ${a.ip===currentIp?"active":""}" data-ip="${esc(a.ip)}"><div class="agent-dot ${a.status==="online"?"online":"offline"}"></div><div class="agent-info"><div class="agent-ip">${esc(a.ip)}</div><div class="agent-host">${esc(a.hostname||"—")}</div></div></div>`;
   }
-  agentListEl.innerHTML = entries.map(a => `
-    <div class="agent-item ${a.ip === currentIp ? "active" : ""}" data-ip="${esc(a.ip)}">
-      <div class="agent-dot ${a.status === "online" ? "online" : "offline"}"></div>
-      <div class="agent-info">
-        <div class="agent-ip">${esc(a.ip)}</div>
-        <div class="agent-host">${esc(a.hostname || "—")}</div>
-      </div>
-    </div>`).join("");
-
-  agentListEl.querySelectorAll(".agent-item").forEach(el => {
-    el.addEventListener("click", () => {
-      ipInput.value = el.dataset.ip;
-      startWatching(el.dataset.ip);
-    });
-  });
+  agentListEl.innerHTML=h;
+  agentListEl.querySelectorAll(".agent-item").forEach(el=>{el.addEventListener("click",()=>{ipInput.value=el.dataset.ip;startWatching(el.dataset.ip);});});
 }
+async function loadAgents(){try{const r=await fetch(`${serverBaseHttp}/api/agents`);if(!r.ok)return;(await r.json()).forEach(a=>{knownAgents[a.ip]=a;});renderAgentList();}catch(e){}}
 
-// ═══════════════════════════════════════════════════════════════════════
-// Server-level WebSocket (agent list updates)
-// ═══════════════════════════════════════════════════════════════════════
-async function loadAgents() {
-  try {
-    const res = await fetch(`${serverBaseHttp}/api/agents`);
-    if (!res.ok) return;
-    const agents = await res.json();
-    agents.forEach(a => { knownAgents[a.ip] = a; });
-    renderAgentList();
-  } catch(_) {}
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// View WebSocket (logs for specific IP)
-// ═══════════════════════════════════════════════════════════════════════
-function startWatching(ip) {
-  stopWatching();
-  currentIp = ip;
-  allLogs   = [];
-  showLogPanel();
-  renderLogs();
-  updateAgentStatus(knownAgents[ip] || null, knownAgents[ip]?.status || "unknown");
-
-  const wsUrl = `${serverBaseWs}/ws/view/${encodeURIComponent(ip)}`;
-  setConnStatus("connecting", "Birikdirilýär…");
-
-  viewWs = new WebSocket(wsUrl);
-
-  viewWs.onopen = () => {
-    setConnStatus("connected", "Birikdirildi");
-    btnStop.disabled = false;
-    btnWatch.disabled = true;
-    // ping to keep alive
-    const pingInterval = setInterval(() => {
-      if (viewWs && viewWs.readyState === WebSocket.OPEN) {
-        viewWs.send(JSON.stringify({type:"ping"}));
-      } else {
-        clearInterval(pingInterval);
-      }
-    }, 15000);
-    viewWs._pingInterval = pingInterval;
-  };
-
-  viewWs.onmessage = (ev) => {
-    let msg;
-    try { msg = JSON.parse(ev.data); } catch(_) { return; }
-
-    if (msg.type === "history") {
-      allLogs = msg.entries || [];
-      if (msg.agent_info) {
-        knownAgents[ip] = msg.agent_info;
-        renderAgentList();
-        updateAgentStatus(msg.agent_info, msg.agent_info.status || "online");
-      }
-      renderLogs();
-    } else if (msg.type === "log" && msg.ip === ip) {
-      allLogs.push(msg.entry);
-      // cap at 3000 in memory
-      if (allLogs.length > 3000) allLogs.shift();
-      renderLogs();
-    } else if (msg.type === "agent_status" && msg.ip === ip) {
-      knownAgents[ip] = msg.info;
-      renderAgentList();
-      updateAgentStatus(msg.info, msg.status);
+// ── Single WS ──────────────────────────────────────────────
+function startWatching(ip){
+  stopAll(); currentIp=ip; currentMode="single"; allLogs=[];
+  setMultiColumns(false); showLogPanel(); panelHeader.style.display="flex";
+  renderLogs(); updateAgentStatus(knownAgents[ip]||null,knownAgents[ip]?.status||"unknown");
+  setConnStatus("connecting","Birikdirilýär…");
+  viewWs=new WebSocket(`${serverBaseWs}/ws/view/${encodeURIComponent(ip)}`);
+  viewWs.binaryType="blob";
+  viewWs.onopen=()=>{setConnStatus("connected","Birikdirildi");btnStop.disabled=false;btnWatch.disabled=true;btnMulti.disabled=true;
+    viewWs._ping=setInterval(()=>{if(viewWs?.readyState===WebSocket.OPEN)viewWs.send(JSON.stringify({type:"ping"}));},15000);};
+  viewWs.onmessage=(ev)=>{
+    // Binary frame = raw JPEG screenshot
+    if(ev.data instanceof Blob){
+      showScreenBlob(ev.data,ip);
+      return;
+    }
+    let msg;try{msg=JSON.parse(ev.data);}catch(e){return;}
+    if(msg.type==="history"){
+      allLogs=msg.entries||[];
+      if(msg.agent_info){knownAgents[ip]=msg.agent_info;renderAgentList();updateAgentStatus(msg.agent_info,msg.agent_info.status||"online");}
+      if(msg.activity){activityData[ip]=msg.activity;}
+      if(msg.browser_history){historyData[ip]=msg.browser_history;}
+      renderLogs();scrollToBottom();
+      if(currentTab==="activity")renderActivity();
+      if(currentTab==="screen"&&msg.screenshot)showScreenFrame(msg.screenshot,ip);
+    }else if(msg.type==="log"&&msg.ip===ip){
+      allLogs.push(msg.entry);if(allLogs.length>5000)allLogs.shift();renderLogs();scrollToBottom();
+    }else if(msg.type==="agent_status"&&msg.ip===ip){
+      knownAgents[ip]=msg.info;renderAgentList();updateAgentStatus(msg.info,msg.status);
+    }else if(msg.type==="activity"&&msg.ip===ip){
+      activityData[ip]=msg.activity;
+      if(currentTab==="activity")renderActivity();
+    }else if(msg.type==="browser_history"&&msg.ip===ip){
+      historyData[ip]=msg.history;if(currentTab==="activity")renderActivity();
+    }else if(msg.type==="screenshot"&&msg.ip===ip){
+      screenshotData[ip]=msg.data;
+      if(currentTab==="screen")showScreenFrame(msg.data,ip);
     }
   };
-
-  viewWs.onclose = () => {
-    setConnStatus("disconnected", "Birikdirilmedi");
-    btnStop.disabled = true;
-    btnWatch.disabled = false;
-    if (viewWs && viewWs._pingInterval) clearInterval(viewWs._pingInterval);
-  };
-
-  viewWs.onerror = () => {
-    setConnStatus("disconnected", "Birikdirmek ýalňyşlygy");
-  };
+  viewWs.onclose=()=>{setConnStatus("disconnected","Birikdirilmedi");btnStop.disabled=true;btnWatch.disabled=false;btnMulti.disabled=false;if(viewWs?._ping)clearInterval(viewWs._ping);};
+  viewWs.onerror=()=>setConnStatus("disconnected","Ýalňyşlyk");
+  // trigger current tab refresh
+  if(currentTab==="activity"){renderActivity();fetchAndRenderActivity();}
+  if(currentTab==="screen"){renderScreenFromData();fetchAndRenderScreen();}
 }
 
-function stopWatching() {
-  if (viewWs) {
-    if (viewWs._pingInterval) clearInterval(viewWs._pingInterval);
-    viewWs.close();
-    viewWs = null;
-  }
-  currentIp = null;
-  btnStop.disabled = true;
-  btnWatch.disabled = false;
-  setConnStatus("disconnected", "Birikdirilmedi");
+// ── Multi WS ───────────────────────────────────────────────
+function startMultiView(){
+  stopAll();currentIp=null;currentMode="multi";allLogs=[];setMultiColumns(true);showLogPanel();panelHeader.style.display="none";renderLogs();
+  setConnStatus("connecting","Multi-birik…");
+  multiWs=new WebSocket(`${serverBaseWs}/ws/multi`);
+  multiWs.binaryType="blob";
+  multiWs.onopen=()=>{setConnStatus("connected","Multi-görnüş");btnStop.disabled=false;btnWatch.disabled=true;btnMulti.disabled=true;
+    multiWs._ping=setInterval(()=>{if(multiWs?.readyState===WebSocket.OPEN)multiWs.send(JSON.stringify({type:"ping"}));},15000);};
+  multiWs.onmessage=(ev)=>{
+    // Binary frame = raw JPEG screenshot
+    if(ev.data instanceof Blob){
+      const sip=currentIp||Object.keys(knownAgents)[0];
+      if(sip) showScreenBlob(ev.data,sip);
+      return;
+    }
+    let msg;try{msg=JSON.parse(ev.data);}catch(e){return;}
+    if(msg.type==="multi_history"){
+      allLogs=msg.entries||[];if(msg.agents)msg.agents.forEach(a=>{knownAgents[a.ip]=a;});
+      if(msg.all_activity)Object.assign(activityData,msg.all_activity);
+      if(msg.all_history)Object.assign(historyData,msg.all_history);
+      renderAgentList();renderLogs();scrollToBottom();
+      if(currentTab==="activity")renderActivity();
+    }else if(msg.type==="log"){
+      allLogs.push({...msg.entry,agent_ip:msg.ip});if(allLogs.length>5000)allLogs.shift();renderLogs();scrollToBottom();
+    }else if(msg.type==="agent_status"){knownAgents[msg.ip]=msg.info;renderAgentList();
+    }else if(msg.type==="activity"){activityData[msg.ip]=msg.activity;if(currentTab==="activity")renderActivity();
+    }else if(msg.type==="browser_history"){historyData[msg.ip]=msg.history;if(currentTab==="activity")renderActivity();
+    }else if(msg.type==="screenshot"){
+      screenshotData[msg.ip]=msg.data;
+      if(currentTab==="screen"){
+        const sip=currentIp||msg.ip;
+        if(msg.ip===sip)showScreenFrame(msg.data,msg.ip);
+      }
+    }
+  };
+  multiWs.onclose=()=>{setConnStatus("disconnected","Birikdirilmedi");btnStop.disabled=true;btnWatch.disabled=false;btnMulti.disabled=false;if(multiWs?._ping)clearInterval(multiWs._ping);};
+  multiWs.onerror=()=>setConnStatus("disconnected","Ýalňyşlyk");
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// Events
-// ═══════════════════════════════════════════════════════════════════════
-serverUrlEl.addEventListener("change", () => {
-  const val = serverUrlEl.value.trim().replace(/\/$/, "");
-  serverBaseWs  = val.startsWith("ws") ? val : "ws://" + val;
-  serverBaseHttp = serverBaseWs.replace(/^ws/, "http");
-  loadAgents();
+function stopAll(){
+  if(viewWs){if(viewWs._ping)clearInterval(viewWs._ping);viewWs.close();viewWs=null;}
+  if(multiWs){if(multiWs._ping)clearInterval(multiWs._ping);multiWs.close();multiWs=null;}
+  stopAllTimers(); stopScreenFpsCounter(); screenSetOffline();
+  currentMode="none";currentIp=null;btnStop.disabled=true;btnWatch.disabled=false;btnMulti.disabled=false;
+  setConnStatus("disconnected","Birikdirilmedi");
+}
+
+// ── Dashboard ──────────────────────────────────────────────
+async function refreshDashboard(){try{const r=await fetch(`${serverBaseHttp}/api/stats`);if(!r.ok)return;dashData=await r.json();renderDashboard(dashData);}catch(e){}}
+function renderDashboard(d){if(!d)return;
+  $("dash-cards").innerHTML=statCard("Jemi loglar",d.total_logs,"clr-blue")+statCard("ERROR",d.by_level.ERROR,"clr-red")+statCard("WARN",d.by_level.WARN,"clr-orange")+statCard("Agentler online",`${d.agents_online} / ${d.agents_total}`,"clr-green");
+  drawLineChart($("chart-rate"),d.per_minute||[]);drawDoughnut($("chart-levels"),d.by_level);
+  renderMetrics($("metrics-panel"),d.metrics||{});
+}
+function statCard(l,v,c){return `<div class="dash-card"><div class="dc-label">${l}</div><div class="dc-value ${c}">${v}</div></div>`;}
+function drawLineChart(el,data){
+  if(!data.length){el.innerHTML='<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:40px">Maglumat ýok</div>';return;}
+  const W=500,H=160,p={t:10,r:10,b:30,l:45},cw=W-p.l-p.r,ch=H-p.t-p.b,mx=Math.max(1,...data.map(d=>d.count));
+  const pts=data.map((d,i)=>({x:p.l+(i/Math.max(1,data.length-1))*cw,y:p.t+ch-(d.count/mx)*ch,l:d.minute?d.minute.slice(11):"",v:d.count}));
+  const lp=pts.map(q=>`${q.x},${q.y}`).join(" "),ap=`${pts[0].x},${p.t+ch} ${lp} ${pts[pts.length-1].x},${p.t+ch}`;
+  let gl="";for(let i=0;i<=4;i++){const y=p.t+(i/4)*ch;gl+=`<line class="grid-line" x1="${p.l}" y1="${y}" x2="${W-p.r}" y2="${y}"/><text x="${p.l-6}" y="${y+4}" text-anchor="end">${Math.round(mx*(1-i/4))}</text>`;}
+  const st=Math.max(1,Math.floor(data.length/6));let xl="";for(let i=0;i<data.length;i+=st)xl+=`<text x="${pts[i].x}" y="${H-4}" text-anchor="middle">${pts[i].l}</text>`;
+  const dots=pts.map(q=>`<circle class="data-dot" cx="${q.x}" cy="${q.y}" r="3"><title>${q.v}</title></circle>`).join("");
+  el.innerHTML=`<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${gl}${xl}<polygon class="data-area" points="${ap}"/><polyline class="data-line" points="${lp}"/>${dots}</svg>`;
+}
+function drawDoughnut(el,by){
+  const segs=[{l:"INFO",c:by.INFO||0,clr:"var(--blue)"},{l:"WARN",c:by.WARN||0,clr:"var(--orange)"},{l:"ERROR",c:by.ERROR||0,clr:"var(--red)"},{l:"DEBUG",c:by.DEBUG||0,clr:"var(--green)"}];
+  const tot=segs.reduce((s,x)=>s+x.c,0)||1,R=55,CX=65,CY=65,C=2*Math.PI*R;
+  let off=0,circles="";for(const s of segs){const d=(s.c/tot)*C;circles+=`<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${s.clr}" stroke-width="18" stroke-dasharray="${d} ${C-d}" stroke-dashoffset="${-off}" transform="rotate(-90 ${CX} ${CY})"/>`;off+=d;}
+  const leg=segs.map(s=>`<div class="doughnut-legend-item"><div class="doughnut-legend-dot" style="background:${s.clr}"></div>${s.l}: <span class="doughnut-legend-count">${s.c.toLocaleString()}</span></div>`).join("");
+  el.innerHTML=`<div class="doughnut-wrap"><svg class="doughnut-svg" viewBox="0 0 130 130">${circles}<text x="${CX}" y="${CY+4}" text-anchor="middle" fill="var(--text)" font-size="14" font-weight="700" font-family="var(--font-mono)">${tot.toLocaleString()}</text></svg><div class="doughnut-legend">${leg}</div></div>`;
+}
+function renderMetrics(el,mm){
+  if(!Object.keys(mm).length){el.innerHTML='<div style="color:var(--text-dim);font-size:12px">Metrika ýok</div>';return;}
+  let h="";for(const[ip,m]of Object.entries(mm)){const a=knownAgents[ip],nm=a?`${a.hostname} (${ip})`:ip;
+    h+=`<div class="metric-agent-card"><h4>${esc(nm)}</h4><div class="gauge-row">${gauge(m.cpu_percent,"CPU","var(--blue)")}${gauge(m.ram_percent,"RAM","var(--purple)")}${gauge(m.disk_percent,"Disk","var(--orange)")}</div></div>`;}
+  el.innerHTML=h;
+}
+function gauge(v,l,c){const val=v!=null?Math.round(v):0,C=2*Math.PI*32,d=(val/100)*C;
+  return `<div class="gauge"><svg viewBox="0 0 80 80"><circle class="gauge-bg" cx="40" cy="40" r="32"/><circle class="gauge-fill" cx="40" cy="40" r="32" stroke="${c}" stroke-dasharray="${d} ${C-d}" transform="rotate(-90 40 40)"/></svg><div class="gauge-text" style="color:${c}">${val}%</div><div class="gauge-label">${l}</div></div>`;}
+
+// ── Events ─────────────────────────────────────────────────
+serverUrlEl.addEventListener("change",()=>{const v=serverUrlEl.value.trim().replace(/\/$/,"");serverBaseWs=v.startsWith("ws")?v:"ws://"+v;serverBaseHttp=serverBaseWs.replace(/^ws/,"http");loadAgents();});
+btnWatch.addEventListener("click",()=>{const ip=ipInput.value.trim();if(!ip){ipInput.focus();return;}startWatching(ip);});
+btnMulti.addEventListener("click",startMultiView);
+btnStop.addEventListener("click",stopAll);
+btnClear.addEventListener("click",()=>{allLogs=[];renderLogs();});
+btnExport.addEventListener("click",()=>{
+  const f=getFiltered(),hdr=currentMode==="multi"?["timestamp","agent_ip","level","source","message"]:["timestamp","level","source","message"];
+  const csv=r=>hdr.map(k=>`"${(r[k]||"").replace(/"/g,'""')}"`).join(",");
+  const b=new Blob([hdr.join(",")+"\n"+f.map(csv).join("\n")],{type:"text/csv;charset=utf-8"});
+  const u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=`logs_${currentIp||"multi"}_${Date.now()}.csv`;a.click();URL.revokeObjectURL(u);
 });
+ipInput.addEventListener("keydown",e=>{if(e.key==="Enter")btnWatch.click();});
+document.querySelectorAll(".level-btn").forEach(b=>{b.addEventListener("click",()=>{document.querySelectorAll(".level-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");activeLevel=b.dataset.level;renderLogs();});});
+let searchTimer;searchInput.addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{searchQuery=searchInput.value.trim();renderLogs();},200);});
 
-btnWatch.addEventListener("click", () => {
-  const ip = ipInput.value.trim();
-  if (!ip) { ipInput.focus(); return; }
-  startWatching(ip);
-});
-
-btnStop.addEventListener("click", stopWatching);
-
-btnClear.addEventListener("click", () => {
-  allLogs = [];
-  renderLogs();
-});
-
-btnExport.addEventListener("click", () => {
-  const q = searchQuery.toLowerCase();
-  const filtered = allLogs.filter(e => {
-    if (activeLevel !== "ALL" && e.level !== activeLevel) return false;
-    if (q && !e.message.toLowerCase().includes(q) && !e.source.toLowerCase().includes(q)) return false;
-    return true;
-  });
-  const header = ["timestamp","level","source","message"];
-  const csvRow = (r) => header.map(k => `"${(r[k]||"").replace(/"/g,'""')}"`).join(",");
-  const blob = new Blob(
-    [header.join(",") + "\n" + filtered.map(csvRow).join("\n")],
-    {type: "text/csv;charset=utf-8"}
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `logs_${currentIp || "export"}_${Date.now()}.csv`;
-  a.click(); URL.revokeObjectURL(url);
-});
-
-ipInput.addEventListener("keydown", e => { if (e.key === "Enter") btnWatch.click(); });
-
-// level filter
-document.querySelectorAll(".level-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".level-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    activeLevel = btn.dataset.level;
-    renderLogs();
-  });
-});
-
-// search
-let searchTimer;
-searchInput.addEventListener("input", () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    searchQuery = searchInput.value.trim();
-    renderLogs();
-  }, 200);
-});
-
-// ═══════════════════════════════════════════════════════════════════════
-// Init
-// ═══════════════════════════════════════════════════════════════════════
-(function init() {
-  const val = serverUrlEl.value.trim();
-  serverBaseWs   = val.startsWith("ws") ? val : "ws://" + val;
-  serverBaseHttp = serverBaseWs.replace(/^ws/, "http");
-  loadAgents();
-  // refresh agent list every 10s
-  setInterval(loadAgents, 10000);
+// ── Init ───────────────────────────────────────────────────
+(function(){
+  // sync server URL input with auto-detected values
+  serverUrlEl.value=serverBaseWs;
+  loadAgents();setInterval(loadAgents,10000);
 })();
 </script>
 </body>
